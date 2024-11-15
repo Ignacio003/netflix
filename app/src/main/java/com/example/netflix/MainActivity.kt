@@ -1,6 +1,8 @@
 package com.example.netflix
 
+import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -20,9 +22,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -37,28 +41,18 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
 import retrofit2.http.Path
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.ui.res.colorResource
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.ui.res.painterResource
-import androidx.navigation.compose.*
-import androidx.compose.foundation.clickable
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
+import java.io.IOException
+import androidx.media3.common.MediaItem
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView
 
 // MainActivity
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        //setTheme(R.style.Theme.Netflix)  POR QUÉ COJONES NO FUNCIONA
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             NetflixTheme {
-                AppNavigation()
                 val navController = rememberNavController()
                 Scaffold(
                     modifier = Modifier
@@ -93,7 +87,6 @@ val retrofit = Retrofit.Builder()
 
 val mediaApiService: MediaApiService = retrofit.create(MediaApiService::class.java)
 
-
 data class Media(
     val mediaId: Int,
     val title: String,
@@ -102,204 +95,6 @@ data class Media(
     val lowResUrl: String,
     val category: String
 )
-
-@Composable
-fun AppNavigation() {
-    val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = "login") {
-        composable("login") { LoginScreen(navController) }
-        composable("register") { RegisterScreen(navController) }
-    }
-}
-
-@Composable
-fun LoginScreen(
-    navController: NavController,
-    modifier: Modifier = Modifier // Declaramos el parámetro `modifier` con un valor por defecto
-) {
-    // Estado para guardar el correo electrónico y la contraseña ingresados por el usuario
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var passwordVisible by remember { mutableStateOf(false) }
-
-    // Diseño principal de la pantalla
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(color = colorResource(id = R.color.blue_background))
-            .padding(16.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Image(
-            painter = painterResource(id = R.drawable.logo_app),
-            contentDescription = "Logo de la aplicación",
-            modifier = Modifier
-                .size(200.dp)
-                .padding(bottom = 24.dp)
-        )
-        // Campo de entrada para el correo electrónico
-        OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
-            label = { Text("Correo electrónico") },
-            textStyle = LocalTextStyle.current.copy(color = Color.White),
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Campo de entrada para la contraseña
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = { Text("Contraseña") },
-            textStyle = LocalTextStyle.current.copy(color = Color.White),
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-            trailingIcon = {
-                IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                    Icon(
-                        imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                        contentDescription = if (passwordVisible) "Ocultar contraseña" else "Mostrar contraseña"
-                    )
-                }
-            }
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Botón de inicio de sesión
-        Button(
-            onClick = { /* Accion de inicio de sesión aquí */ },
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = colorResource(id = R.color.blue_button), // Color de fondo del botón
-                contentColor = Color.White // Color del texto del botón
-            )
-        ) {
-            Text("Iniciar sesión")
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Texto para registrarse
-        Text(
-            text = "¿No tienes cuenta? Regístrate",
-            color = Color.White,
-            modifier = Modifier
-                .padding(top = 8.dp)
-                .clickable { navController.navigate("register") } // Navega a la pantalla de registro al hacer clic
-        )
-
-    }
-}
-
-@Composable
-fun RegisterScreen(navController: NavController) {
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var confirmPassword by remember { mutableStateOf("") }
-    var passwordVisible by remember { mutableStateOf(false) }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(color = colorResource(id = R.color.blue_background))
-            .padding(16.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Image(
-            painter = painterResource(id = R.drawable.logo_app),
-            contentDescription = "Logo de la aplicación",
-            modifier = Modifier
-                .size(200.dp)
-                .padding(bottom = 24.dp)
-        )
-
-        OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
-            label = { Text("Correo electrónico") },
-            textStyle = LocalTextStyle.current.copy(color = Color.White),
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-
-
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = { Text("Contraseña") },
-            textStyle = LocalTextStyle.current.copy(color = Color.White),
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-            trailingIcon = {
-                IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                    Icon(
-                        imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                        contentDescription = if (passwordVisible) "Ocultar contraseña" else "Mostrar contraseña"
-                    )
-                }
-            }
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        OutlinedTextField(
-            value = confirmPassword,
-            onValueChange = { confirmPassword = it },
-            label = { Text("Repetir contraseña") },
-            textStyle = LocalTextStyle.current.copy(color = Color.White),
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-            trailingIcon = {
-                IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                    Icon(
-                        imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                        contentDescription = if (passwordVisible) "Ocultar contraseña" else "Mostrar contraseña"
-                    )
-                }
-            }
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Button(
-            onClick = { /* Acción de registro aquí */ },
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = colorResource(id = R.color.blue_button),
-                contentColor = Color.White
-            )
-        ) {
-            Text("Registrarse")
-        }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun LoginScreenPreview() {
-    NetflixTheme {
-        LoginScreen(rememberNavController())
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun RegisterScreenPreview() {
-    NetflixTheme {
-        RegisterScreen(rememberNavController())
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -348,6 +143,10 @@ fun NetflixNavHost(navController: NavHostController) {
         composable("category/{categoryName}") { backStackEntry ->
             val categoryName = backStackEntry.arguments?.getString("categoryName")
             CategoryScreen(navController = navController, categoryName = categoryName)
+        }
+        composable("player/{videoUrl}") { backStackEntry ->
+            val videoUrl = backStackEntry.arguments?.getString("videoUrl")
+            PlayerScreen(navController = navController, videoUrl = videoUrl)
         }
         composable("profile") {
             ProfileScreen(navController = navController)
@@ -408,7 +207,6 @@ fun CategoryBox(categoryName: String, onClick: () -> Unit) {
     }
 }
 
-
 @Composable
 fun CategoryScreen(navController: NavController, categoryName: String?) {
     val mediaList = remember { mutableStateListOf<Media>() }
@@ -422,6 +220,8 @@ fun CategoryScreen(navController: NavController, categoryName: String?) {
                     val response = mediaApiService.getMediaByCategory(categoryName)
                     mediaList.clear()
                     mediaList.addAll(response)
+                } catch (e: IOException) {
+                    error.value = "No internet connection: ${e.message}"
                 } catch (e: Exception) {
                     error.value = "Error loading media: ${e.message}"
                 }
@@ -456,7 +256,7 @@ fun CategoryScreen(navController: NavController, categoryName: String?) {
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 items(mediaList) { media ->
-                    MediaBox(media)
+                    MediaBox(media, navController)
                 }
             }
         }
@@ -465,12 +265,42 @@ fun CategoryScreen(navController: NavController, categoryName: String?) {
 
 @OptIn(ExperimentalCoilApi::class)
 @Composable
-fun MediaBox(media: Media) {
+fun MediaBox(media: Media, navController: NavController) {
+    var showDialog by remember { mutableStateOf(false) }
+    var selectedUrl by remember { mutableStateOf<String?>(null) }
+
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text(text = "Select Quality") },
+            text = { Text("Choose the video quality:") },
+            confirmButton = {
+                TextButton(onClick = {
+                    selectedUrl = media.highResUrl
+                    showDialog = false
+                    navController.navigate("player/${Uri.encode(selectedUrl)}")
+                }) {
+                    Text("High Quality")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    selectedUrl = media.lowResUrl
+                    showDialog = false
+                    navController.navigate("player/${Uri.encode(selectedUrl)}")
+                }) {
+                    Text("Low Quality")
+                }
+            }
+        )
+    }
+
     Column(
         modifier = Modifier
             .background(Color(0xFF1B0033))
             .size(180.dp)
             .clickable {
+                showDialog = true
             },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top
@@ -485,6 +315,60 @@ fun MediaBox(media: Media) {
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(text = media.title, color = Color.White, textAlign = TextAlign.Center)
+    }
+}@Composable
+fun PlayerScreen(navController: NavController, videoUrl: String?) {
+    val context = LocalContext.current
+    Log.d("PlayerScreen", "Video URL: $videoUrl")
+
+    if (videoUrl.isNullOrBlank()) {
+        Text(text = "Error: Video URL is missing", color = Color.Red, textAlign = TextAlign.Center)
+    } else {
+        val exoPlayer = remember {
+            ExoPlayer.Builder(context).build().apply {
+                try {
+                    setMediaItem(MediaItem.fromUri(videoUrl))
+                    prepare()
+                    playWhenReady = true
+                } catch (e: Exception) {
+                    Log.e("PlayerScreen", "Error initializing ExoPlayer: ${e.message}")
+                }
+            }
+        }
+
+        DisposableEffect(
+            AndroidView(
+                factory = {
+                    PlayerView(context).apply {
+                        player = exoPlayer
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+        ) {
+            onDispose {
+                exoPlayer.release()
+            }
+        }
+
+        Box(modifier = Modifier.fillMaxSize()) {
+            AndroidView(
+                factory = {
+                    PlayerView(context).apply {
+                        player = exoPlayer
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+            IconButton(
+                onClick = { navController.popBackStack() },
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(16.dp)
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Go back", tint = Color.White)
+            }
+        }
     }
 }
 

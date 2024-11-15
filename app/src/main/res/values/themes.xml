@@ -2,8 +2,4 @@
 <resources>
 
     <style name="Theme.Netflix" parent="android:Theme.Material.Light.NoActionBar" />
-
-    <style name="SplashTheme" parent="Theme.Netflix">
-        <item name="android:windowBackground">@drawable/splashscreen</item>
-    </style>
 </resources>
