@@ -45,14 +45,34 @@ import java.io.IOException
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.ui.res.colorResource
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.ui.res.painterResource
+import androidx.navigation.compose.*
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
+import org.json.JSONObject
+import retrofit2.Response
+import retrofit2.http.Body
+import retrofit2.http.POST
 
 // MainActivity
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Set the main theme
+        setTheme(R.style.Theme_Netflix)
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             NetflixTheme {
+                // Your UI content
                 val navController = rememberNavController()
                 Scaffold(
                     modifier = Modifier
@@ -74,10 +94,25 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+object UserSession {
+    var username: String? = null
+}
+
+data class LoginResponse(
+    val message: String
+)
+
 // API Service
 interface MediaApiService {
     @GET("media/category/{category}")
     suspend fun getMediaByCategory(@Path("category") category: String): List<Media>
+
+    @POST("users/login")
+    suspend fun loginUser(@Body user: User): Response<LoginResponse>
+
+    @POST("users/register")
+    suspend fun registerUser(@Body user: User): Response<LoginResponse>
+
 }
 
 val retrofit = Retrofit.Builder()
@@ -86,6 +121,11 @@ val retrofit = Retrofit.Builder()
     .build()
 
 val mediaApiService: MediaApiService = retrofit.create(MediaApiService::class.java)
+
+data class User(
+    val username: String,
+    val passwordHash: String
+)
 
 data class Media(
     val mediaId: Int,
@@ -127,10 +167,15 @@ fun SuperiorPart(
     )
 }
 
-// Navigation
 @Composable
 fun NetflixNavHost(navController: NavHostController) {
-    NavHost(navController, startDestination = "categories") {
+    NavHost(navController, startDestination = "login") { // Start destination is now "login"
+        composable("login") {
+            LoginScreen(navController = navController)
+        }
+        composable("register") {
+            RegisterScreen(navController = navController)
+        }
         composable("categories") {
             Column {
                 SuperiorPart(
@@ -173,7 +218,223 @@ fun CategoryGrid(navController: NavController) {
         }
     }
 }
+@Composable
+fun LoginScreen(navController: NavController, modifier: Modifier = Modifier) {
+    var username by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val coroutineScope = rememberCoroutineScope()
 
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(color = colorResource(id = R.color.blue_background))
+            .padding(16.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.logo_app),
+            contentDescription = "App logo",
+            modifier = Modifier
+                .size(200.dp)
+                .padding(bottom = 24.dp)
+        )
+        OutlinedTextField(
+            value = username,
+            onValueChange = { username = it },
+            label = { Text("Username") },
+            textStyle = LocalTextStyle.current.copy(color = Color.White),
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        OutlinedTextField(
+            value = password,
+            onValueChange = { password = it },
+            label = { Text("Password") },
+            textStyle = LocalTextStyle.current.copy(color = Color.White),
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            trailingIcon = {
+                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    Icon(
+                        imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                        contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                    )
+                }
+            }
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(
+            onClick = {
+                coroutineScope.launch {
+                    try {
+                        val response = mediaApiService.loginUser(User(username, password))
+                        if (response.isSuccessful) {
+                            val loginResponse = response.body()
+                            if (loginResponse?.message == "Login successful!") {
+                                UserSession.username = username
+                                navController.navigate("categories")
+                            } else {
+                                errorMessage = "Login failed"
+                            }
+                        } else {
+                            errorMessage = "Login failed"
+                        }
+                    } catch (e: Exception) {
+                        errorMessage = "Error: ${e.message}"
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = colorResource(id = R.color.blue_button),
+                contentColor = Color.White
+            )
+        ) {
+            Text("Login")
+        }
+
+        errorMessage?.let {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = it, color = Color.Red)
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Don't have an account? Register",
+            color = Color.White,
+            modifier = Modifier
+                .padding(top = 8.dp)
+                .clickable { navController.navigate("register") }
+        )
+    }
+}
+@Composable
+fun RegisterScreen(navController: NavController) {
+    var username by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val coroutineScope = rememberCoroutineScope()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(color = colorResource(id = R.color.blue_background))
+            .padding(16.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.logo_app),
+            contentDescription = "App logo",
+            modifier = Modifier
+                .size(200.dp)
+                .padding(bottom = 24.dp)
+        )
+
+        OutlinedTextField(
+            value = username,
+            onValueChange = { username = it },
+            label = { Text("Username") },
+            textStyle = LocalTextStyle.current.copy(color = Color.White),
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        OutlinedTextField(
+            value = password,
+            onValueChange = { password = it },
+            label = { Text("Password") },
+            textStyle = LocalTextStyle.current.copy(color = Color.White),
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            trailingIcon = {
+                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    Icon(
+                        imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                        contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                    )
+                }
+            }
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        OutlinedTextField(
+            value = confirmPassword,
+            onValueChange = { confirmPassword = it },
+            label = { Text("Confirm Password") },
+            textStyle = LocalTextStyle.current.copy(color = Color.White),
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            trailingIcon = {
+                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    Icon(
+                        imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                        contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                    )
+                }
+            }
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(
+            onClick = {
+                if (password == confirmPassword) {
+                    coroutineScope.launch {
+                        try {
+                            val response = mediaApiService.registerUser(User(username, password))
+                            if (response.isSuccessful) {
+                                val registerResponse = response.body()
+                                if (registerResponse?.message == "User registered successfully!") {
+                                    navController.navigate("login")
+                                } else {
+                                    errorMessage = registerResponse?.message ?: "Registration failed"
+                                }
+                            } else {
+                                val errorJson = response.errorBody()?.string()
+                                val errorObj = JSONObject(errorJson)
+                                errorMessage = errorObj.getString("message")
+                            }
+                        } catch (e: Exception) {
+                            errorMessage = "Error: ${e.message}"
+                        }
+                    }
+                } else {
+                    errorMessage = "Passwords do not match"
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = colorResource(id = R.color.blue_button),
+                contentColor = Color.White
+            )
+        ) {
+            Text("Register")
+        }
+
+        errorMessage?.let {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = it, color = Color.Red)
+        }
+    }
+}
 @OptIn(ExperimentalCoilApi::class)
 @Composable
 fun CategoryBox(categoryName: String, onClick: () -> Unit) {
@@ -374,27 +635,40 @@ fun PlayerScreen(navController: NavController, videoUrl: String?) {
 
 @Composable
 fun ProfileScreen(navController: NavController) {
+    val username = UserSession.username ?: "Unknown User"
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black),
+            .background(color = colorResource(id = R.color.blue_background))
+            .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top
     ) {
         SuperiorPart(
             name = "Profile",
             showBackButton = true,
-            onBackClick = {
-                if (navController.previousBackStackEntry != null) {
-                    navController.popBackStack()
-                }
-            }
+            onBackClick = { navController.popBackStack() }
         )
         Spacer(modifier = Modifier.height(16.dp))
-        Text(text = "User Profile", color = Color.White)
+        Text(text = "Username: $username", color = Color.White)
         Spacer(modifier = Modifier.height(16.dp))
-        Text(text = "Email: user@example.com", color = Color.White)
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(text = "Password: ••••••••", color = Color.White)
+        Button(
+            onClick = {
+                UserSession.username = null
+                navController.navigate("login") {
+                    popUpTo(navController.graph.startDestinationId) {
+                        inclusive = true
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = colorResource(id = R.color.blue_button),
+                contentColor = Color.White
+            )
+        ) {
+            Text("Logout")
+        }
     }
 }

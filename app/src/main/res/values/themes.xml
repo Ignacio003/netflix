@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
     <style name="Theme.Netflix" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <style name="Theme.Netflix.Splash" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowBackground">@drawable/splash_background</item>
+        <item name="android:statusBarColor">@color/blue_background</item>
+    </style>
+
 </resources>

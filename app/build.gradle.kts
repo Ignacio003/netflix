@@ -73,7 +73,7 @@ dependencies {
     implementation (libs.converter.gson)
     implementation(libs.retrofit)
     implementation(libs.converter.gson)
-    implementation(libs.coil.compose) // Add this line for Coil
-
-
+    implementation(libs.coil.compose)
+    implementation(libs.androidx.material.icons.extended)
+    implementation (libs.material)
 }
