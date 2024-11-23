@@ -62,6 +62,17 @@ import org.json.JSONObject
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.POST
+import android.content.Context
+import android.os.Environment
+import android.view.View
+import androidx.compose.material.icons.filled.Download
+import androidx.media3.common.Player
+import java.io.File
+import java.io.OutputStream
+import java.net.HttpURLConnection
+import java.net.URL
+import kotlinx.coroutines.withContext
+
 
 // MainActivity
 class MainActivity : ComponentActivity() {
@@ -133,7 +144,9 @@ data class Media(
     val description: String,
     val highResUrl: String,
     val lowResUrl: String,
-    val category: String
+    val category: String,
+    val hlsUrl1080p: String,
+    val hlsUrl360p: String
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -467,7 +480,6 @@ fun CategoryBox(categoryName: String, onClick: () -> Unit) {
         Text(text = categoryName, color = Color.White)
     }
 }
-
 @Composable
 fun CategoryScreen(navController: NavController, categoryName: String?) {
     val mediaList = remember { mutableStateListOf<Media>() }
@@ -504,6 +516,9 @@ fun CategoryScreen(navController: NavController, categoryName: String?) {
                 if (navController.previousBackStackEntry != null) {
                     navController.popBackStack()
                 }
+            },
+            onProfileClick = {
+                navController.navigate("profile")
             }
         )
 
@@ -523,7 +538,6 @@ fun CategoryScreen(navController: NavController, categoryName: String?) {
         }
     }
 }
-
 @OptIn(ExperimentalCoilApi::class)
 @Composable
 fun MediaBox(media: Media, navController: NavController) {
@@ -577,58 +591,131 @@ fun MediaBox(media: Media, navController: NavController) {
         Spacer(modifier = Modifier.height(8.dp))
         Text(text = media.title, color = Color.White, textAlign = TextAlign.Center)
     }
-}@Composable
+}
+@Composable
 fun PlayerScreen(navController: NavController, videoUrl: String?) {
     val context = LocalContext.current
-    Log.d("PlayerScreen", "Video URL: $videoUrl")
+    val coroutineScope = rememberCoroutineScope()
+    val externalFilesDir = context.getExternalFilesDir(Environment.DIRECTORY_MOVIES)?.absolutePath
+    val localFileName = videoUrl?.substringAfterLast("/")?.replace(".m3u8", ".mp4")
+    val localFilePath = "$externalFilesDir/$localFileName"
+    var fileExists by remember { mutableStateOf(File(localFilePath).exists()) }
+    val downloadInProgress = remember { mutableStateOf(false) }
+    val videoLoading = remember { mutableStateOf(true) }
+    val controlsVisible = remember { mutableStateOf(false) }
 
-    if (videoUrl.isNullOrBlank()) {
-        Text(text = "Error: Video URL is missing", color = Color.Red, textAlign = TextAlign.Center)
-    } else {
-        val exoPlayer = remember {
-            ExoPlayer.Builder(context).build().apply {
-                try {
-                    setMediaItem(MediaItem.fromUri(videoUrl))
-                    prepare()
-                    playWhenReady = true
-                } catch (e: Exception) {
-                    Log.e("PlayerScreen", "Error initializing ExoPlayer: ${e.message}")
+    val exoPlayer = remember {
+        ExoPlayer.Builder(context).build().apply {
+            if (fileExists) {
+                setMediaItem(MediaItem.fromUri(Uri.parse(localFilePath)))
+            } else if (!videoUrl.isNullOrBlank()) {
+                setMediaItem(MediaItem.fromUri(videoUrl))
+            }
+            prepare()
+            playWhenReady = true
+            addListener(object : Player.Listener {
+                override fun onPlaybackStateChanged(state: Int) {
+                    if (state == Player.STATE_READY) {
+                        videoLoading.value = false
+                    }
+                }
+
+                override fun onIsPlayingChanged(isPlaying: Boolean) {
+                    controlsVisible.value = !isPlaying
+                }
+            })
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            exoPlayer.release()
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        AndroidView(
+            factory = {
+                PlayerView(context).apply {
+                    player = exoPlayer
+                    setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { visibility ->
+                        controlsVisible.value = visibility == View.VISIBLE
+                    })
+                }
+            },
+            modifier = Modifier.fillMaxSize()
+        )
+
+        if (videoLoading.value) {
+            CircularProgressIndicator(
+                modifier = Modifier.align(Alignment.Center),
+                color = Color.White
+            )
+        }
+
+        IconButton(
+            onClick = { navController.popBackStack() },
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(16.dp)
+        ) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Go back", tint = Color.White)
+        }
+
+        if (!fileExists && controlsVisible.value) {
+            FloatingActionButton(
+                onClick = {
+                    coroutineScope.launch {
+                        downloadInProgress.value = true
+                        try {
+                            val result = downloadVideo(context, videoUrl ?: "", localFilePath)
+                            if (result) {
+                                exoPlayer.setMediaItem(MediaItem.fromUri(Uri.parse(localFilePath)))
+                                exoPlayer.prepare()
+                                fileExists = true
+                            }
+                        } catch (e: Exception) {
+                            Log.e("PlayerScreen", "Error downloading video: ${e.message}")
+                        } finally {
+                            downloadInProgress.value = false
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp),
+                containerColor = Color.Black
+            ) {
+                if (downloadInProgress.value) {
+                    CircularProgressIndicator(color = Color.White)
+                } else {
+                    Icon(Icons.Default.Download, contentDescription = "Download Video", tint = Color.White)
                 }
             }
         }
+    }
+}
+suspend fun downloadVideo(context: Context, videoUrl: String, localPath: String): Boolean {
+    return withContext(Dispatchers.IO) {
+        try {
+            val url = URL(videoUrl.replace(".m3u8", ".mp4"))
+            val connection = url.openConnection() as HttpURLConnection
+            connection.connect()
 
-        DisposableEffect(
-            AndroidView(
-                factory = {
-                    PlayerView(context).apply {
-                        player = exoPlayer
-                    }
-                },
-                modifier = Modifier.fillMaxSize()
-            )
-        ) {
-            onDispose {
-                exoPlayer.release()
+            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                throw IOException("Server returned HTTP ${connection.responseCode} ${connection.responseMessage}")
             }
-        }
 
-        Box(modifier = Modifier.fillMaxSize()) {
-            AndroidView(
-                factory = {
-                    PlayerView(context).apply {
-                        player = exoPlayer
-                    }
-                },
-                modifier = Modifier.fillMaxSize()
-            )
-            IconButton(
-                onClick = { navController.popBackStack() },
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(16.dp)
-            ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Go back", tint = Color.White)
+            val inputStream = connection.inputStream
+            val file = File(localPath)
+            file.outputStream().use { output ->
+                inputStream.copyTo(output)
             }
+            Log.d("Download", "Downloaded video to $localPath")
+            true
+        } catch (e: Exception) {
+            Log.e("Download", "Error downloading video: ${e.message}")
+            false
         }
     }
 }
