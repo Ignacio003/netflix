@@ -73,17 +73,13 @@ import java.net.HttpURLConnection
 import java.net.URL
 import kotlinx.coroutines.withContext
 
-
-// MainActivity
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Set the main theme
         setTheme(R.style.Theme_Netflix)
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             NetflixTheme {
-                // Your UI content
                 val navController = rememberNavController()
                 Scaffold(
                     modifier = Modifier
@@ -113,7 +109,6 @@ data class LoginResponse(
     val message: String
 )
 
-// API Service
 interface MediaApiService {
     @GET("media/category/{category}")
     suspend fun getMediaByCategory(@Path("category") category: String): List<Media>
@@ -182,7 +177,7 @@ fun SuperiorPart(
 
 @Composable
 fun NetflixNavHost(navController: NavHostController) {
-    NavHost(navController, startDestination = "login") { // Start destination is now "login"
+    NavHost(navController, startDestination = "login") {
         composable("login") {
             LoginScreen(navController = navController)
         }
@@ -212,7 +207,7 @@ fun NetflixNavHost(navController: NavHostController) {
     }
 }
 
-// Category Grid
+
 @Composable
 fun CategoryGrid(navController: NavController) {
     val categories = listOf("Series", "Films", "Documentaries", "Kids")
@@ -538,6 +533,7 @@ fun CategoryScreen(navController: NavController, categoryName: String?) {
         }
     }
 }
+
 @OptIn(ExperimentalCoilApi::class)
 @Composable
 fun MediaBox(media: Media, navController: NavController) {
