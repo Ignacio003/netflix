@@ -76,4 +76,7 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.androidx.material.icons.extended)
     implementation (libs.material)
+    implementation (libs.androidx.media3.exoplayer.v100)
+    implementation (libs.androidx.media3.exoplayer.hls)
+    implementation (libs.androidx.media3.ui.v100)
 }

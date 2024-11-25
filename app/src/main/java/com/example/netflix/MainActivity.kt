@@ -588,6 +588,8 @@ fun MediaBox(media: Media, navController: NavController) {
         Text(text = media.title, color = Color.White, textAlign = TextAlign.Center)
     }
 }
+
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
 fun PlayerScreen(navController: NavController, videoUrl: String?) {
     val context = LocalContext.current
@@ -603,9 +605,17 @@ fun PlayerScreen(navController: NavController, videoUrl: String?) {
     val exoPlayer = remember {
         ExoPlayer.Builder(context).build().apply {
             if (fileExists) {
-                setMediaItem(MediaItem.fromUri(Uri.parse(localFilePath)))
+                val uri = Uri.parse(localFilePath)
+                setMediaItem(MediaItem.fromUri(uri))
+                Log.d("PlayerScreen", "Playing local file: $uri")
             } else if (!videoUrl.isNullOrBlank()) {
-                setMediaItem(MediaItem.fromUri(videoUrl))
+                val hlsUrl = if (videoUrl.contains("_360p")) {
+                    videoUrl.replace("_360p.mp4", "_hls_360p/playlist.m3u8")
+                } else {
+                    videoUrl.replace(".mp4", "_hls_1080p/playlist.m3u8")
+                }
+                setMediaItem(MediaItem.fromUri(hlsUrl))
+                Log.d("PlayerScreen", "Playing HLS URL: $hlsUrl")
             }
             prepare()
             playWhenReady = true
@@ -663,29 +673,24 @@ fun PlayerScreen(navController: NavController, videoUrl: String?) {
                 onClick = {
                     coroutineScope.launch {
                         downloadInProgress.value = true
-                        try {
-                            val result = downloadVideo(context, videoUrl ?: "", localFilePath)
-                            if (result) {
-                                exoPlayer.setMediaItem(MediaItem.fromUri(Uri.parse(localFilePath)))
-                                exoPlayer.prepare()
-                                fileExists = true
-                            }
-                        } catch (e: Exception) {
-                            Log.e("PlayerScreen", "Error downloading video: ${e.message}")
-                        } finally {
-                            downloadInProgress.value = false
+                        val success = downloadVideo(context, videoUrl!!, localFilePath)
+                        downloadInProgress.value = false
+                        if (success) {
+                            fileExists = true
+                            exoPlayer.setMediaItem(MediaItem.fromUri(Uri.parse(localFilePath)))
+                            exoPlayer.prepare()
                         }
                     }
                 },
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(16.dp),
-                containerColor = Color.Black
+                containerColor = Color.Transparent
             ) {
                 if (downloadInProgress.value) {
                     CircularProgressIndicator(color = Color.White)
                 } else {
-                    Icon(Icons.Default.Download, contentDescription = "Download Video", tint = Color.White)
+                    Icon(Icons.Filled.Download, contentDescription = "Download", tint = Color.White)
                 }
             }
         }

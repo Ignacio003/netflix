@@ -13,13 +13,18 @@ composeBom = "2024.04.01"
 material = "1.12.0"
 materialIconsExtended = "1.7.5"
 media3Exoplayer = "1.4.1"
+media3ExoplayerVersion = "1.0.0"
+media3Ui = "1.0.0"
 navigationCompose = "2.8.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "materialIconsExtended" }
 androidx-media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = "media3Exoplayer" }
+androidx-media3-exoplayer-hls = { module = "androidx.media3:media3-exoplayer-hls", version.ref = "media3Exoplayer" }
+androidx-media3-exoplayer-v100 = { module = "androidx.media3:media3-exoplayer", version.ref = "media3ExoplayerVersion" }
 androidx-media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3Exoplayer" }
+androidx-media3-ui-v100 = { module = "androidx.media3:media3-ui", version.ref = "media3Ui" }
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coilCompose" }
 converter-gson = { module = "com.squareup.retrofit2:converter-gson", version.ref = "converterGson" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
