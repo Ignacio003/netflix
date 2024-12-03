@@ -53,6 +53,7 @@ import androidx.compose.foundation.background
 import androidx.compose.ui.res.painterResource
 import androidx.navigation.compose.*
 import androidx.compose.foundation.clickable
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
@@ -72,6 +73,17 @@ import java.io.OutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import kotlinx.coroutines.withContext
+import java.io.FileInputStream
+import java.security.MessageDigest
+import java.net.DatagramPacket
+import java.net.DatagramSocket
+import java.net.InetAddress
+import java.io.DataInputStream
+import java.io.DataOutputStream
+import java.io.EOFException
+import java.net.ServerSocket
+import java.net.Socket
+import java.io.FileOutputStream
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -98,9 +110,14 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        val moviesDir = getExternalFilesDir(Environment.DIRECTORY_MOVIES)
+        if (moviesDir != null) {
+            val fileChunks = chunkAllFilesInDirectory(moviesDir, 1024 * 1024)
+            Thread { startChunkServer(8081, fileChunks) }.start()
+
+        }
     }
 }
-
 object UserSession {
     var username: String? = null
 }
@@ -130,7 +147,8 @@ val mediaApiService: MediaApiService = retrofit.create(MediaApiService::class.ja
 
 data class User(
     val username: String,
-    val passwordHash: String
+    val passwordHash: String,
+    val esAdmin: Boolean = false
 )
 
 data class Media(
@@ -144,6 +162,132 @@ data class Media(
     val hlsUrl360p: String
 )
 
+
+data class Chunk(val index: Int, val data: ByteArray, val hash: String)
+
+fun chunkAllFilesInDirectory(directory: File, chunkSize: Int): Map<String, List<Chunk>> {
+    val fileChunks = mutableMapOf<String, List<Chunk>>()
+
+    directory.listFiles()?.forEach { file ->
+        if (file.isFile) {
+            val chunks = chunkFile(file, chunkSize)
+            fileChunks[file.name] = chunks
+
+        }
+    }
+    return fileChunks
+}
+fun chunkFile(file: File, chunkSize: Int): List<Chunk> {
+    val chunks = mutableListOf<Chunk>()
+    val buffer = ByteArray(chunkSize)
+    val digest = MessageDigest.getInstance("SHA-256")
+    FileInputStream(file).use { fis ->
+        var bytesRead: Int
+        var index = 0
+        while (fis.read(buffer).also { bytesRead = it } != -1) {
+            val chunkData = buffer.copyOf(bytesRead)
+            val hash = digest.digest(chunkData).joinToString("") { "%02x".format(it) }
+            chunks.add(Chunk(index++, chunkData, hash))
+        }
+    }
+    return chunks
+}
+fun chunkFiles(files: List<File>, chunkSize: Int): Map<String, List<Chunk>> {
+    val fileChunks = mutableMapOf<String, List<Chunk>>()
+    files.forEach { file ->
+        val chunks = chunkFile(file, chunkSize)
+        fileChunks[file.name] = chunks
+    }
+    return fileChunks
+}
+suspend fun discoverPeers(port: Int): List<InetAddress> = withContext(Dispatchers.IO) {
+    val peers = mutableListOf<InetAddress>()
+    val socket = DatagramSocket()
+    socket.broadcast = true
+    val message = "DISCOVER_PEERS".toByteArray()
+    val packet = DatagramPacket(message, message.size, InetAddress.getByName("255.255.255.255"), port)
+    Log.d("discoverPeers", "Sending broadcast packet to ${packet.address}:${packet.port}")
+    socket.send(packet)
+
+    val buffer = ByteArray(1024)
+    val responsePacket = DatagramPacket(buffer, buffer.size)
+    socket.soTimeout = 10000 // 10 seconds timeout
+    try {
+        while (true) {
+            socket.receive(responsePacket)
+            Log.d("discoverPeers", "Received response from: ${responsePacket.address}")
+            peers.add(responsePacket.address)
+        }
+    } catch (e: Exception) {
+        Log.d("discoverPeers", "Timeout reached or error: ${e.message}")
+    }
+    socket.close()
+    Log.d("discoverPeers", "Peers discovered: ${peers.size}")
+    peers
+}
+fun startChunkServer(port: Int, fileChunks: Map<String, List<Chunk>>) {
+    try {
+        val serverSocket = ServerSocket(port)
+        Log.d("ChunkServer", "Chunk server started on port $port")
+        while (true) {
+            try {
+                val clientSocket = serverSocket.accept()
+                Log.d("ChunkServer", "Accepted connection from ${clientSocket.inetAddress}")
+                Thread { handleClient(clientSocket, fileChunks) }.start()
+            } catch (e: IOException) {
+                Log.e("ChunkServer", "Error accepting connection: ${e.message}")
+            }
+        }
+    } catch (e: IOException) {
+        Log.e("ChunkServer", "Error starting server: ${e.message}")
+    }
+}
+fun handleClient(clientSocket: Socket, fileChunks: Map<String, List<Chunk>>) {
+    try {
+        val input = DataInputStream(clientSocket.getInputStream())
+        val output = DataOutputStream(clientSocket.getOutputStream())
+        val fileName = input.readUTF()
+        val chunkIndex = input.readInt()
+        val chunks = fileChunks[fileName]
+        val chunk = chunks?.find { it.index == chunkIndex }
+        if (chunk != null) {
+            output.writeInt(chunk.data.size)
+            output.write(chunk.data)
+        } else {
+            output.writeInt(0)
+        }
+    } catch (e: EOFException) {
+        Log.e("ChunkServer", "Client disconnected unexpectedly: ${e.message}")
+    } catch (e: IOException) {
+        Log.e("ChunkServer", "I/O error: ${e.message}")
+    } finally {
+        clientSocket.close()
+    }
+}
+fun requestChunk(peer: InetAddress, port: Int, fileName: String, chunkIndex: Int): ByteArray? {
+    val socket = Socket(peer, port)
+    val input = DataInputStream(socket.getInputStream())
+    val output = DataOutputStream(socket.getOutputStream())
+    output.writeUTF(fileName)
+    output.writeInt(chunkIndex)
+    val chunkSize = input.readInt()
+    return if (chunkSize > 0) {
+        val chunkData = ByteArray(chunkSize)
+        input.readFully(chunkData)
+        chunkData
+    } else {
+        null
+    }.also {
+        socket.close()
+    }
+}
+fun reassembleFile(chunks: List<Chunk>, outputFile: File) {
+    FileOutputStream(outputFile).use { fos ->
+        chunks.sortedBy { it.index }.forEach { chunk ->
+            fos.write(chunk.data)
+        }
+    }
+}
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SuperiorPart(
@@ -607,18 +751,38 @@ fun PlayerScreen(navController: NavController, videoUrl: String?) {
             if (fileExists) {
                 val uri = Uri.parse(localFilePath)
                 setMediaItem(MediaItem.fromUri(uri))
+                playWhenReady = true
                 Log.d("PlayerScreen", "Playing local file: $uri")
-            } else if (!videoUrl.isNullOrBlank()) {
-                val hlsUrl = if (videoUrl.contains("_360p")) {
-                    videoUrl.replace("_360p.mp4", "_hls_360p/playlist.m3u8")
-                } else {
-                    videoUrl.replace(".mp4", "_hls_1080p/playlist.m3u8")
+            } else {
+                coroutineScope.launch {
+                    Log.d("PlayerScreen", "Searching for peers...")
+                    val peers = discoverPeers(8081)
+                    Log.d("PlayerScreen", "Peers discovered: ${peers.size}")
+                    var peerStreamUri: Uri? = null
+                    for (peer in peers) {
+                        Log.d("PlayerScreen", "Requesting chunk from peer: ${peer.hostAddress}")
+                        val chunkData = requestChunk(peer, 8081, localFileName!!, 0)
+                        if (chunkData != null) {
+                            peerStreamUri = Uri.parse("http://${peer.hostAddress}:8081/$localFileName")
+                            break
+                        }
+                    }
+                    if (peerStreamUri != null) {
+                        setMediaItem(MediaItem.fromUri(peerStreamUri))
+                        Log.d("PlayerScreen", "Streaming from peer: $peerStreamUri")
+                    } else if (!videoUrl.isNullOrBlank()) {
+                        val hlsUrl = if (videoUrl.contains("_360p")) {
+                            videoUrl.replace("_360p.mp4", "_hls_360p/playlist.m3u8")
+                        } else {
+                            videoUrl.replace(".mp4", "_hls_1080p/playlist.m3u8")
+                        }
+                        setMediaItem(MediaItem.fromUri(hlsUrl))
+                        Log.d("PlayerScreen", "Playing HLS URL: $hlsUrl")
+                    }
+                    prepare()
+                    playWhenReady = true
                 }
-                setMediaItem(MediaItem.fromUri(hlsUrl))
-                Log.d("PlayerScreen", "Playing HLS URL: $hlsUrl")
             }
-            prepare()
-            playWhenReady = true
             addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(state: Int) {
                     if (state == Player.STATE_READY) {
@@ -668,18 +832,19 @@ fun PlayerScreen(navController: NavController, videoUrl: String?) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Go back", tint = Color.White)
         }
 
-        if (!fileExists && controlsVisible.value) {
+        if (!fileExists) {
             FloatingActionButton(
                 onClick = {
                     coroutineScope.launch {
                         downloadInProgress.value = true
                         val success = downloadVideo(context, videoUrl!!, localFilePath)
-                        downloadInProgress.value = false
                         if (success) {
                             fileExists = true
                             exoPlayer.setMediaItem(MediaItem.fromUri(Uri.parse(localFilePath)))
                             exoPlayer.prepare()
+                            exoPlayer.playWhenReady = true
                         }
+                        downloadInProgress.value = false
                     }
                 },
                 modifier = Modifier
@@ -696,6 +861,7 @@ fun PlayerScreen(navController: NavController, videoUrl: String?) {
         }
     }
 }
+
 suspend fun downloadVideo(context: Context, videoUrl: String, localPath: String): Boolean {
     return withContext(Dispatchers.IO) {
         try {
