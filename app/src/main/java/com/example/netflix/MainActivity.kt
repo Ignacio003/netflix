@@ -54,6 +54,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.navigation.compose.*
 import androidx.compose.foundation.clickable
 import kotlinx.coroutines.withContext
+import java.net.NetworkInterface
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
@@ -200,29 +201,47 @@ fun chunkFiles(files: List<File>, chunkSize: Int): Map<String, List<Chunk>> {
     }
     return fileChunks
 }
+
+fun getBroadcastAddress(): InetAddress? {
+    val interfaces = NetworkInterface.getNetworkInterfaces()
+    while (interfaces.hasMoreElements()) {
+        val networkInterface = interfaces.nextElement()
+        if (networkInterface.isLoopback || !networkInterface.isUp) continue
+
+        networkInterface.interfaceAddresses.forEach { address ->
+            address.broadcast?.let {
+                return it
+            }
+        }
+    }
+    return null
+}
 suspend fun discoverPeers(port: Int): List<InetAddress> = withContext(Dispatchers.IO) {
     val peers = mutableListOf<InetAddress>()
     val socket = DatagramSocket()
     socket.broadcast = true
     val message = "DISCOVER_PEERS".toByteArray()
-    val broadcastAddress = InetAddress.getByName("10.104.15.255")
+    val broadcastAddress = getBroadcastAddress() ?: return@withContext peers
     val packet = DatagramPacket(message, message.size, broadcastAddress, port)
-    Log.d("discoverPeers", "Sending broadcast packet to ${packet.address}:${packet.port}")
-    Log.d("discoverPeers", "Sending broadcast packet to ${packet.address}:${packet.port}")
+
+    Log.d("discoverPeers", "Sending broadcast packet to ${broadcastAddress.hostAddress}:${port}")
+
     socket.send(packet)
 
     val buffer = ByteArray(1024)
     val responsePacket = DatagramPacket(buffer, buffer.size)
-    socket.soTimeout = 10000 // 10 seconds timeout
+    socket.soTimeout = 10000 // Tiempo de espera de 10 segundos
+
     try {
         while (true) {
             socket.receive(responsePacket)
-            Log.d("discoverPeers", "Received response from: ${responsePacket.address}")
+            Log.d("discoverPeers", "Received response from: ${responsePacket.address.hostAddress}")
             peers.add(responsePacket.address)
         }
     } catch (e: Exception) {
         Log.d("discoverPeers", "Timeout reached or error: ${e.message}")
     }
+
     socket.close()
     Log.d("discoverPeers", "Peers discovered: ${peers.size}")
     peers
