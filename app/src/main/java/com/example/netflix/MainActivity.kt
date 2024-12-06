@@ -205,7 +205,9 @@ suspend fun discoverPeers(port: Int): List<InetAddress> = withContext(Dispatcher
     val socket = DatagramSocket()
     socket.broadcast = true
     val message = "DISCOVER_PEERS".toByteArray()
-    val packet = DatagramPacket(message, message.size, InetAddress.getByName("255.255.255.255"), port)
+    val broadcastAddress = InetAddress.getByName("10.104.15.255")
+    val packet = DatagramPacket(message, message.size, broadcastAddress, port)
+    Log.d("discoverPeers", "Sending broadcast packet to ${packet.address}:${packet.port}")
     Log.d("discoverPeers", "Sending broadcast packet to ${packet.address}:${packet.port}")
     socket.send(packet)
 
