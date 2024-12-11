@@ -211,7 +211,7 @@ suspend fun discoverPeers(port: Int): List<InetAddress> = withContext(Dispatcher
 
     val buffer = ByteArray(1024)
     val responsePacket = DatagramPacket(buffer, buffer.size)
-    socket.soTimeout = 10000 // 10 seconds timeout
+    socket.soTimeout = 100000 // 10 seconds timeout
     try {
         while (true) {
             socket.receive(responsePacket)
