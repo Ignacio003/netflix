@@ -66,7 +66,13 @@ import retrofit2.http.POST
 import android.content.Context
 import android.os.Environment
 import android.view.View
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.media3.common.Player
 import java.io.File
 import java.io.OutputStream
@@ -487,6 +493,7 @@ fun LoginScreen(navController: NavController, modifier: Modifier = Modifier) {
         )
     }
 }
+
 @Composable
 fun RegisterScreen(navController: NavController) {
     var username by remember { mutableStateOf("") }
@@ -604,6 +611,7 @@ fun RegisterScreen(navController: NavController) {
         }
     }
 }
+
 @OptIn(ExperimentalCoilApi::class)
 @Composable
 fun CategoryBox(categoryName: String, onClick: () -> Unit) {
@@ -636,11 +644,14 @@ fun CategoryBox(categoryName: String, onClick: () -> Unit) {
         Text(text = categoryName, color = Color.White)
     }
 }
+
 @Composable
 fun CategoryScreen(navController: NavController, categoryName: String?) {
     val mediaList = remember { mutableStateListOf<Media>() }
     val error = remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
+    val isSearching = remember { mutableStateOf(false) }
+    val searchQuery = remember { mutableStateOf("") }
 
     LaunchedEffect(categoryName) {
         if (categoryName != null) {
@@ -676,10 +687,15 @@ fun CategoryScreen(navController: NavController, categoryName: String?) {
                     navController.popBackStack()
                 }
             },
-            onProfileClick = {
-                navController.navigate("profile")
+            isSearching = isSearching.value,
+            searchQuery = searchQuery.value,
+            onSearchQueryChange = { query -> searchQuery.value = query },
+            onSearchToggle = {
+                isSearching.value = !isSearching.value
+                if (!isSearching.value) searchQuery.value = "" // Limpia el texto al cerrar la búsqueda
             }
         )
+
 
         if (error.value != null) {
             Text(text = error.value ?: "Unknown error", color = Color.Red, textAlign = TextAlign.Center)
@@ -690,11 +706,85 @@ fun CategoryScreen(navController: NavController, categoryName: String?) {
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                items(mediaList) { media ->
+                items(mediaList.filter { it.title.contains(searchQuery.value, ignoreCase = true) }) { media ->
                     MediaBox(media, navController)
                 }
             }
         }
+    }
+}
+
+@Composable
+fun SuperiorPart(
+    name: String,
+    showBackButton: Boolean,
+    onBackClick: () -> Unit,
+    isSearching: Boolean,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    onSearchToggle: () -> Unit
+) {
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(isSearching) {
+        if (isSearching) {
+            focusRequester.requestFocus() // Solicita el foco automáticamente al activar la búsqueda
+        }
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFF1B0033))
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (showBackButton) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Back",
+                tint = Color.White,
+                modifier = Modifier
+                    .size(24.dp)
+                    .clickable { onBackClick() }
+            )
+        }
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        if (isSearching) {
+            TextField(
+                value = searchQuery,
+                onValueChange = onSearchQueryChange,
+                modifier = Modifier
+                    .weight(1f)
+                    .focusRequester(focusRequester) // Asocia el FocusRequester al TextField
+                    .background(Color.White, shape = RoundedCornerShape(8.dp)),
+                placeholder = { Text("Search...", color = Color.Gray) },
+                singleLine = true
+            )
+        } else {
+            Text(
+                text = name,
+                color = Color.White,
+                //style = MaterialTheme.typography.h6,
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        Icon(
+            imageVector = if (isSearching) Icons.Default.Close else Icons.Default.Search,
+            contentDescription = if (isSearching) "Close Search" else "Search",
+            tint = Color.White,
+            modifier = Modifier
+                .size(24.dp)
+                .clickable {
+                    onSearchToggle()
+                    if (!isSearching) onSearchQueryChange("") // Limpia el texto si se cierra el buscador
+                }
+        )
     }
 }
 
