@@ -73,6 +73,7 @@ import java.io.OutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import kotlinx.coroutines.withContext
+import retrofit2.http.Header
 import java.io.FileInputStream
 import java.security.MessageDigest
 import java.net.DatagramPacket
@@ -119,16 +120,21 @@ class MainActivity : ComponentActivity() {
     }
 }
 object UserSession {
+    var token: String? = null
     var username: String? = null
 }
 
 data class LoginResponse(
-    val message: String
+    val message: String,
+    val token: String
 )
 
 interface MediaApiService {
     @GET("media/category/{category}")
-    suspend fun getMediaByCategory(@Path("category") category: String): List<Media>
+    suspend fun getMediaByCategory(
+        @Header("Authorization") token: String,
+        @Path("category") category: String
+    ): List<Media>
 
     @POST("users/login")
     suspend fun loginUser(@Body user: User): Response<LoginResponse>
@@ -351,7 +357,6 @@ fun NetflixNavHost(navController: NavHostController) {
     }
 }
 
-
 @Composable
 fun CategoryGrid(navController: NavController) {
     val categories = listOf("Series", "Films", "Documentaries", "Kids")
@@ -428,17 +433,29 @@ fun LoginScreen(navController: NavController, modifier: Modifier = Modifier) {
             onClick = {
                 coroutineScope.launch {
                     try {
-                        val response = mediaApiService.loginUser(User(username, password))
+                        val response = mediaApiService.loginUser(User(username, password, false))
                         if (response.isSuccessful) {
                             val loginResponse = response.body()
-                            if (loginResponse?.message == "Login successful!") {
+                            loginResponse?.let {
+                                // Extraer el token directamente desde loginResponse
+                                val token = it.token
+
+                                // Guardar el token en UserSession o en SharedPreferences
+                                UserSession.token = token
                                 UserSession.username = username
+
+                                // Log del token
+                                Log.d("LoginToken", "Token obtenido: $token")
+
+                                // Navegar a la pantalla siguiente
                                 navController.navigate("categories")
-                            } else {
-                                errorMessage = "Login failed"
+                            } ?: run {
+                                errorMessage = "Unexpected response format"
                             }
                         } else {
-                            errorMessage = "Login failed"
+                            val errorJson = response.errorBody()?.string()
+                            val errorObj = JSONObject(errorJson)
+                            errorMessage = errorObj.getString("message")
                         }
                     } catch (e: Exception) {
                         errorMessage = "Error: ${e.message}"
@@ -551,7 +568,7 @@ fun RegisterScreen(navController: NavController) {
                 if (password == confirmPassword) {
                     coroutineScope.launch {
                         try {
-                            val response = mediaApiService.registerUser(User(username, password))
+                            val response = mediaApiService.registerUser(User(username, password, false))
                             if (response.isSuccessful) {
                                 val registerResponse = response.body()
                                 if (registerResponse?.message == "User registered successfully!") {
@@ -629,9 +646,12 @@ fun CategoryScreen(navController: NavController, categoryName: String?) {
         if (categoryName != null) {
             coroutineScope.launch(Dispatchers.IO) {
                 try {
-                    val response = mediaApiService.getMediaByCategory(categoryName)
+                    val response =
+                        UserSession.token?.let { mediaApiService.getMediaByCategory(it, categoryName) }
                     mediaList.clear()
-                    mediaList.addAll(response)
+                    if (response != null) {
+                        mediaList.addAll(response)
+                    }
                 } catch (e: IOException) {
                     error.value = "No internet connection: ${e.message}"
                 } catch (e: Exception) {
