@@ -68,11 +68,16 @@ import android.os.Environment
 import android.view.View
 import androidx.compose.material.icons.filled.Download
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DataSource
+import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.hls.HlsMediaSource
 import java.io.File
 import java.io.OutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import kotlinx.coroutines.withContext
+import okhttp3.ResponseBody
 import retrofit2.http.Header
 import java.io.FileInputStream
 import java.security.MessageDigest
@@ -142,6 +147,11 @@ interface MediaApiService {
     @POST("users/register")
     suspend fun registerUser(@Body user: User): Response<LoginResponse>
 
+    @GET("media/{fileName}")
+    suspend fun streamMedia(
+        @Header("Authorization") token: String,
+        @Path("fileName") fileName: String
+    ): Response<ResponseBody>
 }
 
 val retrofit = Retrofit.Builder()
@@ -217,7 +227,7 @@ suspend fun discoverPeers(port: Int): List<InetAddress> = withContext(Dispatcher
 
     val buffer = ByteArray(1024)
     val responsePacket = DatagramPacket(buffer, buffer.size)
-    socket.soTimeout = 100000 // 10 seconds timeout
+    socket.soTimeout = 1000 // 10 seconds timeout
     try {
         while (true) {
             socket.receive(responsePacket)
@@ -752,7 +762,15 @@ fun MediaBox(media: Media, navController: NavController) {
         Text(text = media.title, color = Color.White, textAlign = TextAlign.Center)
     }
 }
-
+@UnstableApi
+class TokenDataSourceFactory(private val token: String) : DataSource.Factory {
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+    override fun createDataSource(): DataSource {
+        return DefaultHttpDataSource.Factory()
+            .setDefaultRequestProperties(mapOf("Authorization" to token))
+            .createDataSource()
+    }
+}
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
 fun PlayerScreen(navController: NavController, videoUrl: String?) {
@@ -796,7 +814,10 @@ fun PlayerScreen(navController: NavController, videoUrl: String?) {
                         } else {
                             videoUrl.replace(".mp4", "_hls_1080p/playlist.m3u8")
                         }
-                        setMediaItem(MediaItem.fromUri(hlsUrl))
+                        val dataSourceFactory = TokenDataSourceFactory(UserSession.token!!)
+                        val mediaSource = HlsMediaSource.Factory(dataSourceFactory)
+                            .createMediaSource(MediaItem.fromUri(hlsUrl))
+                        setMediaSource(mediaSource)
                         Log.d("PlayerScreen", "Playing HLS URL: $hlsUrl")
                     }
                     prepare()
@@ -857,7 +878,7 @@ fun PlayerScreen(navController: NavController, videoUrl: String?) {
                 onClick = {
                     coroutineScope.launch {
                         downloadInProgress.value = true
-                        val success = downloadVideo(context, videoUrl!!, localFilePath)
+                        val success = downloadVideoWithToken(context, videoUrl!!, localFilePath, UserSession.token!!)
                         if (success) {
                             fileExists = true
                             exoPlayer.setMediaItem(MediaItem.fromUri(Uri.parse(localFilePath)))
@@ -882,31 +903,28 @@ fun PlayerScreen(navController: NavController, videoUrl: String?) {
     }
 }
 
-suspend fun downloadVideo(context: Context, videoUrl: String, localPath: String): Boolean {
+suspend fun downloadVideoWithToken(context: Context, videoUrl: String, localPath: String, token: String): Boolean {
     return withContext(Dispatchers.IO) {
         try {
-            val url = URL(videoUrl.replace(".m3u8", ".mp4"))
-            val connection = url.openConnection() as HttpURLConnection
-            connection.connect()
-
-            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
-                throw IOException("Server returned HTTP ${connection.responseCode} ${connection.responseMessage}")
+            val response = mediaApiService.streamMedia(token, videoUrl.substringAfterLast("/"))
+            if (response.isSuccessful) {
+                val inputStream = response.body()?.byteStream()
+                val file = File(localPath)
+                file.outputStream().use { output ->
+                    inputStream?.copyTo(output)
+                }
+                Log.d("Download", "Downloaded video to $localPath")
+                true
+            } else {
+                Log.e("Download", "Error downloading video: ${response.errorBody()?.string()}")
+                false
             }
-
-            val inputStream = connection.inputStream
-            val file = File(localPath)
-            file.outputStream().use { output ->
-                inputStream.copyTo(output)
-            }
-            Log.d("Download", "Downloaded video to $localPath")
-            true
         } catch (e: Exception) {
             Log.e("Download", "Error downloading video: ${e.message}")
             false
         }
     }
 }
-
 @Composable
 fun ProfileScreen(navController: NavController) {
     val username = UserSession.username ?: "Unknown User"
