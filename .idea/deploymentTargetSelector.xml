@@ -3,11 +3,11 @@
   <component name="deploymentTargetSelector">
     <selectionStates>
       <SelectionState runConfigName="app">
-        <option name="selectionMode" value="DIALOG" />
-        <DropdownSelection timestamp="2024-12-12T19:32:30.100594300Z">
+        <option name="selectionMode" value="DROPDOWN" />
+        <DropdownSelection timestamp="2024-11-26T14:05:01.475655148Z">
           <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="PhysicalDevice" identifier="serial=R3CR40YVV7T" />
+              <DeviceId pluginId="LocalEmulator" identifier="path=/home/ignacio/.android/avd/Pixel_8a_API_34.avd" />
             </handle>
           </Target>
         </DropdownSelection>
@@ -21,11 +21,6 @@
             <Target type="DEFAULT_BOOT">
               <handle>
                 <DeviceId pluginId="PhysicalDevice" identifier="serial=RFCW6083E9A" />
-              </handle>
-            </Target>
-            <Target type="DEFAULT_BOOT">
-              <handle>
-                <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\FORTES\.android\avd\Medium_Phone_API_35_2.avd" />
               </handle>
             </Target>
           </targets>

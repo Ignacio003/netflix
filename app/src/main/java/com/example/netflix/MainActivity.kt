@@ -1,96 +1,90 @@
 package com.example.netflix
 
+import android.content.Context
 import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.Icons
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.navigation.NavController
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
-import coil.annotation.ExperimentalCoilApi
-import coil.compose.rememberImagePainter
-import com.example.netflix.ui.theme.NetflixTheme
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
-import retrofit2.http.GET
-import retrofit2.http.Path
-import java.io.IOException
 import androidx.media3.common.MediaItem
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.ui.PlayerView
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.ui.res.colorResource
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.tooling.preview.Preview
-import kotlinx.coroutines.delay
-import org.json.JSONObject
-import retrofit2.Response
-import retrofit2.http.Body
-import retrofit2.http.POST
-import android.content.Context
-import android.os.Environment
-import android.view.View
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.hls.HlsMediaSource
-import java.io.File
-import java.io.OutputStream
-import java.net.HttpURLConnection
-import java.net.URL
-import kotlinx.coroutines.withContext
-import okhttp3.ResponseBody
-import retrofit2.http.Header
-import java.io.FileInputStream
-import java.security.MessageDigest
-import java.net.DatagramPacket
-import java.net.DatagramSocket
-import java.net.InetAddress
+import androidx.media3.ui.PlayerView
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.NavController
+import androidx.navigation.NavHostController
+import coil.annotation.ExperimentalCoilApi
+import coil.compose.rememberImagePainter
+import com.example.netflix.ui.theme.NetflixTheme
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.EOFException
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.io.IOException
+import java.net.DatagramPacket
+import java.net.DatagramSocket
+import java.net.Inet4Address
+import java.net.InetAddress
+import java.net.NetworkInterface
 import java.net.ServerSocket
 import java.net.Socket
-import java.io.FileOutputStream
-import java.net.Inet4Address
-import java.net.NetworkInterface
-import kotlin.math.log
+import java.security.MessageDigest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.ResponseBody
+import org.json.JSONObject
+import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.http.Body
+import retrofit2.http.GET
+import retrofit2.http.Header
+import retrofit2.http.Path
+import retrofit2.http.POST
+import retrofit2.Response
+import retrofit2.Retrofit
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -103,13 +97,13 @@ class MainActivity : ComponentActivity() {
                 Scaffold(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black)
+                        .background(color = colorResource(id = R.color.blue_background))
                 ) { innerPadding ->
                     Column(
                         modifier = Modifier
                             .padding(innerPadding)
                             .fillMaxSize()
-                            .background(Color.Black),
+                            .background(color = colorResource(id = R.color.blue_background)),
                         verticalArrangement = Arrangement.Top
                     ) {
                         NetflixNavHost(navController)
@@ -371,22 +365,42 @@ fun SuperiorPart(
     onProfileClick: (() -> Unit)? = null
 ) {
     TopAppBar(
-        title = { Text(text = name) },
+        title = {
+            if(name == "Netflix+") {
+                Image(
+                    painter = painterResource(id = R.drawable.logo_app),
+                    contentDescription = "App logo",
+                    modifier = Modifier
+                        .height(50.dp)
+                        .aspectRatio(1f)
+                )
+            }else{
+                Text(text = name)
+            }
+        },
         modifier = modifier,
         navigationIcon = {
             if (showBackButton) {
                 IconButton(onClick = { onBackClick?.invoke() }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Go back", tint = Color.White)
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Go back",
+                        tint = Color.White
+                    )
                 }
             }
         },
         actions = {
             IconButton(onClick = { onProfileClick?.invoke() }) {
-                Icon(Icons.Filled.Person, contentDescription = "Profile", tint = Color.White)
+                Icon(
+                    Icons.Filled.Person,
+                    contentDescription = "Profile",
+                    tint = Color.White
+                )
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = Color(0xFF1B0033),
+            containerColor = colorResource(id = R.color.blue_background),
             titleContentColor = Color.White
         )
     )
@@ -431,7 +445,7 @@ fun CategoryGrid(navController: NavController) {
         columns = GridCells.Fixed(2),
         modifier = Modifier
             .padding(20.dp)
-            .background(Color.Black),
+            .background(color = colorResource(id = R.color.blue_background)),
         verticalArrangement = Arrangement.spacedBy(16.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -548,6 +562,7 @@ fun LoginScreen(navController: NavController, modifier: Modifier = Modifier) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegisterScreen(navController: NavController) {
     var username by remember { mutableStateOf("") }
@@ -556,117 +571,135 @@ fun RegisterScreen(navController: NavController) {
     var passwordVisible by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(color = colorResource(id = R.color.blue_background))
-            .padding(16.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Image(
-            painter = painterResource(id = R.drawable.logo_app),
-            contentDescription = "App logo",
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
             modifier = Modifier
-                .size(200.dp)
-                .padding(bottom = 24.dp)
-        )
+                .fillMaxSize()
+                .background(color = colorResource(id = R.color.blue_background))
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.logo_app),
+                contentDescription = "App logo",
+                modifier = Modifier
+                    .size(200.dp)
+                    .padding(bottom = 24.dp)
+            )
 
-        OutlinedTextField(
-            value = username,
-            onValueChange = { username = it },
-            label = { Text("Username") },
-            textStyle = LocalTextStyle.current.copy(color = Color.White),
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
+            OutlinedTextField(
+                value = username,
+                onValueChange = { username = it },
+                label = { Text("Username") },
+                textStyle = LocalTextStyle.current.copy(color = Color.White),
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
 
-        Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = { Text("Password") },
-            textStyle = LocalTextStyle.current.copy(color = Color.White),
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-            trailingIcon = {
-                IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                    Icon(
-                        imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                        contentDescription = if (passwordVisible) "Hide password" else "Show password"
-                    )
-                }
-            }
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        OutlinedTextField(
-            value = confirmPassword,
-            onValueChange = { confirmPassword = it },
-            label = { Text("Confirm Password") },
-            textStyle = LocalTextStyle.current.copy(color = Color.White),
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-            trailingIcon = {
-                IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                    Icon(
-                        imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                        contentDescription = if (passwordVisible) "Hide password" else "Show password"
-                    )
-                }
-            }
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Button(
-            onClick = {
-                if (password == confirmPassword) {
-                    coroutineScope.launch {
-                        try {
-                            val response = mediaApiService.registerUser(User(username, password, false))
-                            if (response.isSuccessful) {
-                                val registerResponse = response.body()
-                                if (registerResponse?.message == "User registered successfully!") {
-                                    navController.navigate("login")
-                                } else {
-                                    errorMessage = registerResponse?.message ?: "Registration failed"
-                                }
-                            } else {
-                                val errorJson = response.errorBody()?.string()
-                                val errorObj = JSONObject(errorJson)
-                                errorMessage = errorObj.getString("message")
-                            }
-                        } catch (e: Exception) {
-                            errorMessage = "Error: ${e.message}"
-                        }
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = { Text("Password") },
+                textStyle = LocalTextStyle.current.copy(color = Color.White),
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                        Icon(
+                            imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                            contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                        )
                     }
-                } else {
-                    errorMessage = "Passwords do not match"
+                }
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OutlinedTextField(
+                value = confirmPassword,
+                onValueChange = { confirmPassword = it },
+                label = { Text("Confirm Password") },
+                textStyle = LocalTextStyle.current.copy(color = Color.White),
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                        Icon(
+                            imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                            contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                        )
+                    }
+                }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = {
+                    if (password == confirmPassword) {
+                        coroutineScope.launch {
+                            try {
+                                val response =
+                                    mediaApiService.registerUser(User(username, password, false))
+                                if (response.isSuccessful) {
+                                    val registerResponse = response.body()
+                                    if (registerResponse?.message == "User registered successfully!") {
+                                        navController.navigate("login")
+                                    } else {
+                                        errorMessage =
+                                            registerResponse?.message ?: "Registration failed"
+                                    }
+                                } else {
+                                    val errorJson = response.errorBody()?.string()
+                                    val errorObj = JSONObject(errorJson)
+                                    errorMessage = errorObj.getString("message")
+                                }
+                            } catch (e: Exception) {
+                                errorMessage = "Error: ${e.message}"
+                            }
+                        }
+                    } else {
+                        errorMessage = "Passwords do not match"
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colorResource(id = R.color.blue_button),
+                    contentColor = Color.White
+                )
+            ) {
+                Text("Register")
+            }
+
+            errorMessage?.let {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(text = it, color = Color.Red)
+            }
+        }
+        TopAppBar(
+            title = {},
+            navigationIcon = {
+                IconButton(onClick = { navController.navigate("login") }) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color.White
+                    )
                 }
             },
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = colorResource(id = R.color.blue_button),
-                contentColor = Color.White
-            )
-        ) {
-            Text("Register")
-        }
-
-        errorMessage?.let {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(text = it, color = Color.Red)
-        }
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = colorResource(id = R.color.blue_background)
+            ),
+            modifier = Modifier.align(Alignment.TopStart)
+        )
     }
 }
 
-@OptIn(ExperimentalCoilApi::class)
 @Composable
 fun CategoryBox(categoryName: String, onClick: () -> Unit) {
     val imageRes = when (categoryName) {
@@ -679,7 +712,8 @@ fun CategoryBox(categoryName: String, onClick: () -> Unit) {
 
     Column(
         modifier = Modifier
-            .background(Color(0xFF1B0033))
+            .clip(RoundedCornerShape(8.dp))
+            .background(color = colorResource(id = R.color.blue_button))
             .size(180.dp)
             .clickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -729,7 +763,7 @@ fun CategoryScreen(navController: NavController, categoryName: String?) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black),
+            .background(color = colorResource(id = R.color.blue_background)),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top
     ) {
@@ -788,7 +822,7 @@ fun SuperiorPart(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFF1B0033))
+            .background(colorResource(id = R.color.blue_background))
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -874,7 +908,8 @@ fun MediaBox(media: Media, navController: NavController) {
 
     Column(
         modifier = Modifier
-            .background(Color(0xFF1B0033))
+            .clip(RoundedCornerShape(8.dp))
+            .background(color = colorResource(id = R.color.blue_button))
             .size(180.dp)
             .clickable {
                 showDialog = true
@@ -903,7 +938,7 @@ class TokenDataSourceFactory(private val token: String) : DataSource.Factory {
             .createDataSource()
     }
 }
-// Función para descargar desde peers
+
 suspend fun downloadFromPeers(peers: List<InetAddress>, fileName: String, localPath: String): Boolean {
     return withContext(Dispatchers.IO) {
         val chunks = mutableListOf<Chunk>()
@@ -936,7 +971,6 @@ suspend fun downloadFromPeers(peers: List<InetAddress>, fileName: String, localP
     }
 }
 
-
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
 fun PlayerScreen(navController: NavController, videoUrl: String?) {
@@ -967,15 +1001,12 @@ fun PlayerScreen(navController: NavController, videoUrl: String?) {
 
         if (fileExists) {
             Log.d("Player", "Playing local file: $localFilePath")
-            // Reproducir local
             val uri = Uri.parse(localFilePath)
             exoPlayer.setMediaItem(MediaItem.fromUri(uri))
             exoPlayer.prepare()
             exoPlayer.playWhenReady = true
             videoLoading.value = false
         } else {
-            // Intentar descubrir peers y descargar desde ellos
-
             val peers = discoverPeers(8081)
             Log.d("Player", "Discovered ${peers.size} peers")
             if (peers.isNotEmpty() && localFileName != null) {
@@ -993,7 +1024,6 @@ fun PlayerScreen(navController: NavController, videoUrl: String?) {
                 }
             }
 
-            // Descargar HLS desde el servidor si falla el torrent
             val hlsUrl = if (videoUrl.contains("_360p")) {
                 videoUrl.replace("_360p.mp4", "_hls_360p/playlist.m3u8")
             } else {
@@ -1103,7 +1133,6 @@ suspend fun downloadVideoWithToken(context: Context, videoUrl: String, localPath
         }
     }
 }
-
 
 @Composable
 fun ProfileScreen(navController: NavController) {
