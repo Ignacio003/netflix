@@ -149,10 +149,7 @@ interface MediaApiService {
     ): Response<ResponseBody>
 }
 
-val retrofit = Retrofit.Builder()
-    .baseUrl("http://34.175.133.0:8080/")
-    .addConverterFactory(GsonConverterFactory.create())
-    .build()
+val retrofit = Retrofit.Builder().baseUrl("http://34.175.133.0:8080/").addConverterFactory(GsonConverterFactory.create()).build()
 
 val mediaApiService: MediaApiService = retrofit.create(MediaApiService::class.java)
 
@@ -203,14 +200,6 @@ fun chunkFile(file: File, chunkSize: Int): List<Chunk> {
     return chunks
 }
 
-fun chunkFiles(files: List<File>, chunkSize: Int): Map<String, List<Chunk>> {
-    val fileChunks = mutableMapOf<String, List<Chunk>>()
-    files.forEach { file ->
-        val chunks = chunkFile(file, chunkSize)
-        fileChunks[file.name] = chunks
-    }
-    return fileChunks
-}
 suspend fun discoverPeers(port: Int): List<InetAddress> = withContext(Dispatchers.IO) {
     val peers = mutableListOf<InetAddress>()
     val socket = DatagramSocket()
@@ -230,6 +219,7 @@ suspend fun discoverPeers(port: Int): List<InetAddress> = withContext(Dispatcher
             peers.add(responsePacket.address)
         }
     } catch (e: Exception) {
+
     }
     socket.close()
     peers.forEach { peer ->
@@ -256,8 +246,6 @@ fun startChunkServer(port: Int, fileChunks: Map<String, List<Chunk>>) {
             if (serverAddress != null) break
         }
         Log.d("ChunkServer", "Chunk server started on $serverAddress:$port")
-
-        // Start a thread to listen for broadcast messages
         Thread {
             val broadcastSocket = DatagramSocket(port, InetAddress.getByName("0.0.0.0"))
             broadcastSocket.broadcast = true
@@ -954,10 +942,9 @@ suspend fun downloadFromPeers(peers: List<InetAddress>, fileName: String, localP
             }
             if (chunkData == null) {
                 if (chunkIndex == 0) {
-                    // No hay chunks, archivo no existe en los peers
+                    // archivo no existe en los peers
                     return@withContext false
                 } else {
-                    // No se pudo obtener el siguiente chunk, ensamblamos el archivo
                     val file = File(localPath)
                     reassembleFile(chunks, file)
                     Log.d("TorrentDownload", "File assembled from ${chunks.size} chunks at $localPath")
@@ -966,7 +953,6 @@ suspend fun downloadFromPeers(peers: List<InetAddress>, fileName: String, localP
             }
             chunkIndex++
         }
-        // Add a return statement to ensure the function always returns a Boolean
         return@withContext false
     }
 }
