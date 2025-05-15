@@ -55,17 +55,9 @@ Netflix++ is a Netflix-style streaming application consisting of three main comp
 
 ## Architecture
 
-```plaintext
-┌──────────────┐       ┌─────────────┐       ┌────────────┐
-│   Mobile &   │<----->│   Server    │<----->│  Database  │
-│     CMS      │ JWT   │ Jetty+Jersey│  SQL  │  MariaDB   │
-└──────────────┘ HTTP   └─────────────┘       └────────────┘
-                              ▲
-                              │
-                           ┌──┴──┐
-                           │NGINX│
-                           └─────┘
-```
+<p align="center">
+  <img src="screenshots/scheme.jpg" alt="Scheme" width="200" />
+</p>
 
 ## Technologies
 
@@ -114,13 +106,6 @@ Netflix++ is a Netflix-style streaming application consisting of three main comp
 2. Launch the mobile app, register a user, or log in with admin credentials.
 3. Browse categories, search, and play content.
 4. For administrative tasks, open the CMS app using the admin login.
-
-## Contributing
-
-1. Fork this repository.
-2. Create a branch (`git checkout -b feature/your-feature-name`).
-3. Make your changes with clear, descriptive commits.
-4. Submit a Pull Request detailing your modifications.
 
 ## License
 
