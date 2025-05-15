@@ -56,7 +56,7 @@ Netflix++ is a Netflix-style streaming application consisting of three main comp
 ## Architecture
 
 <p align="center">
-  <img src="screenshots/scheme.jpg" alt="Scheme" width="200" />
+  <img src="screenshots/Scheme.png" alt="Scheme" width="200" />
 </p>
 
 ## Technologies
