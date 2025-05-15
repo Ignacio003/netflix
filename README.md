@@ -6,6 +6,12 @@
 
 ## Description
 
+<p align="center">
+  <img src="screenshots/login.jpg" alt="Login Screen" width="200" />
+  <img src="screenshots/main.jpg" alt="Main Screen" width="200" />
+  <img src="screenshots/player.jpg" alt="Player Screen" width="200" />
+</p>
+
 Netflix++ is a Netflix-style streaming application consisting of three main components:
 
 1. **Mobile App (User App)**: A native Android client that allows users to browse, search, and play multimedia content (series, movies, documentaries, and kids content), including P2P torrent-based streaming, selectable quality, and advanced playback controls.
@@ -37,7 +43,6 @@ Netflix++ is a Netflix-style streaming application consisting of three main comp
 
 ### CMS (Developer App)
 
-* Admin-only login (username: `FCUP_ADMIN`, password: `123456`).
 * User management: create (admin/manual), delete, and list users.
 * Media management: upload files, generate HLS/MP4 in 1080p and 360p, and delete media.
 
@@ -76,8 +81,8 @@ Netflix++ is a Netflix-style streaming application consisting of three main comp
 1. Clone this repository:
 
    ```bash
-   git clone https://github.com/your-username/netflix-plus-plus.git
-   cd netflix-plus-plus
+   git clone https://github.com/Ignacio003/netflix.git
+   cd netflix
    ```
 2. **Backend**:
 
