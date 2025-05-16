@@ -25,7 +25,6 @@ Netflix++ is a Netflix-style streaming application consisting of three main comp
 * [Technologies](#technologies)
 * [Installation](#installation)
 * [Usage](#usage)
-* [Contributing](#contributing)
 * [License](#license)
 * [Authors](#authors)
 
